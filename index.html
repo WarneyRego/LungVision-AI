@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedAI Classifier</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#1e293b",
+                        secondary: "#2563eb",
+                        accent: "#10b981",
+                        light: "#f0fdfa",
+                        neutral: "#e5e7eb",
+                    },
+                },
+            },
+        };
+    </script>
+</head>
+<body class="bg-gradient-to-br from-primary to-secondary min-h-screen text-neutral flex flex-col">
+    
+    <nav class="bg-primary bg-opacity-95 fixed top-0 w-full z-50 shadow-md">
+        <div class="container mx-auto flex items-center justify-between px-6 py-4 animate__animated animate__fadeInDown">
+            <a href="#" class="text-2xl font-bold text-accent" onclick="showSection('home')">MedAI Classifier</a>
+            <ul class="flex space-x-6 text-lg">
+                <li><a href="#" class="hover:text-accent transition duration-300" onclick="showSection('home')">Início</a></li>
+                <li><a href="#" class="hover:text-accent transition duration-300" onclick="showSection('about')">Sobre</a></li>
+                <li><a href="#" class="hover:text-accent transition duration-300" onclick="showSection('contact')">Contato</a></li>
+            </ul>
+        </div>
+    </nav>
+
+
+    <div id="home" class="flex-grow flex items-center justify-center flex-col mt-24">
+        <div class="bg-light bg-opacity-20 backdrop-blur-md rounded-2xl shadow-lg p-8 w-11/12 max-w-3xl animate__animated animate__zoomIn">
+            <h1 class="text-3xl font-extrabold mb-6 text-center text-neutral">Classificador de Imagens Médicas</h1>
+            <div class="text-center">
+                <button 
+                    class="bg-accent text-white px-6 py-3 rounded-lg font-bold hover:bg-green-500 transition duration-300 animate__animated animate__pulse animate__infinite"
+                    onclick="document.getElementById('image-input').click()">
+                    Enviar Imagem
+                </button>
+                <input type="file" id="image-input" accept="image/*" onchange="handleImageUpload(event)" class="hidden">
+            </div>
+            <div id="image-container" class="mt-6"></div>
+            <div id="label-container" class="mt-4"></div>
+        </div>
+    </div>
+
+    <div id="about" class="hidden flex-grow flex items-center justify-center flex-col mt-24 animate__animated animate__fadeIn">
+        <div class="bg-light bg-opacity-20 backdrop-blur-md rounded-2xl shadow-lg p-8 w-11/12 max-w-3xl">
+            <h1 class="text-3xl font-extrabold mb-4 text-center text-neutral">Sobre o Projeto</h1>
+            <p class="text-neutral text-lg text-center">
+                Este projeto utiliza o TensorFlow e o Teachable Machine para classificar imagens médicas. 
+                Ele foi desenvolvido com foco em simplicidade e eficiência, ajudando a diagnosticar doenças com base em imagens de raio-X.
+            </p>
+        </div>
+    </div>
+
+    <div id="contact" class="hidden flex-grow flex items-center justify-center flex-col mt-24 animate__animated animate__fadeIn">
+        <div class="bg-light bg-opacity-20 backdrop-blur-md rounded-2xl shadow-lg p-8 w-11/12 max-w-3xl">
+            <h1 class="text-3xl font-extrabold mb-4 text-center text-neutral">Contato</h1>
+            <p class="text-neutral text-lg text-center">E-mail: <a href="mailto:warneydev@gmail.com" class="text-accent hover:underline">warneydev@gmail.com</a></p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-primary py-6 text-center text-neutral mt-12 animate__animated animate__fadeInUp">
+        <p>Desenvolvido com <span class="text-accent">TensorFlow</span> & <span class="text-accent">Teachable Machine</span></p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script>
+        const URL = "./my_model/";
+
+        let model, labelContainer, maxPredictions;
+
+        window.onload = async function () {
+            await init();
+        };
+
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            labelContainer = document.getElementById("label-container");
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = async function (e) {
+                    const imgElement = new Image();
+                    imgElement.src = e.target.result;
+                    imgElement.onload = async function () {
+                        const imageContainer = document.getElementById("image-container");
+                        imageContainer.innerHTML = "";
+                        const imgPreview = document.createElement('img');
+                        imgPreview.src = imgElement.src;
+                        imgPreview.classList.add(
+                            'rounded-lg', 
+                            'shadow-lg', 
+                            'w-full', 
+                            'max-h-80', 
+                            'object-contain', 
+                            'animate__animated', 
+                            'animate__fadeIn'
+                        );
+                        imageContainer.appendChild(imgPreview);
+
+                        await predict(imgElement);
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function predict(image) {
+            const prediction = await model.predict(image);
+            const classNames = ["Normal", "Pneumonia"];
+            let maxPrediction = { probability: 0 };
+            let predictedClassName = "";
+
+            for (let i = 0; i < maxPredictions; i++) {
+                if (prediction[i].probability > maxPrediction.probability) {
+                    maxPrediction = prediction[i];
+                    predictedClassName = classNames[i];
+                }
+            }
+
+            const classPrediction =
+                predictedClassName + ": " + (maxPrediction.probability * 100).toFixed(2) + "%";
+            const resultDiv = document.createElement('div');
+            resultDiv.classList.add(
+                'text-lg', 
+                'font-bold', 
+                'bg-accent', 
+                'text-white', 
+                'rounded-lg', 
+                'p-4', 
+                'shadow-md', 
+                'mt-4', 
+                'animate__animated', 
+                'animate__slideInUp'
+            );
+            resultDiv.textContent = classPrediction;
+
+            labelContainer.innerHTML = "";
+            labelContainer.appendChild(resultDiv);
+        }
+
+        function showSection(section) {
+            document.querySelectorAll("div[id]").forEach((el) => el.classList.add("hidden"));
+            document.getElementById(section).classList.remove("hidden");
+        }
+    </script>
+</body>
+</html>
